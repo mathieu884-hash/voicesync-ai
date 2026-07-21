@@ -1,27 +1,45 @@
 """Health Check Routes"""
-from fastapi import APIRouter, status
-from datetime import datetime
+from fastapi import APIRouter
+from sqlalchemy import text
+from app.utils.database import SessionLocal
+import logging
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
 
-@router.get("/health", status_code=status.HTTP_200_OK)
+@router.get("/health")
 async def health_check():
-    """Health check endpoint"""
+    """
+    Health check endpoint
+    """
     return {
         "status": "healthy",
-        "timestamp": datetime.utcnow().isoformat(),
-        "service": "VoiceSync AI Backend"
+        "service": "VoiceSync AI API",
+        "version": "1.0.0"
     }
 
 
-@router.get("/health/live", status_code=status.HTTP_200_OK)
-async def liveness_check():
-    """Kubernetes liveness probe"""
-    return {"status": "live"}
-
-
-@router.get("/health/ready", status_code=status.HTTP_200_OK)
-async def readiness_check():
-    """Kubernetes readiness probe"""
-    return {"status": "ready"}
+@router.get("/health/db")
+async def database_health():
+    """
+    Database health check
+    """
+    try:
+        db = SessionLocal()
+        result = db.execute(text("SELECT 1"))
+        db.close()
+        
+        return {
+            "status": "healthy",
+            "database": "PostgreSQL",
+            "connection": "OK"
+        }
+    except Exception as e:
+        logger.error(f"Database health check failed: {str(e)}")
+        return {
+            "status": "unhealthy",
+            "database": "PostgreSQL",
+            "error": str(e)
+        }
