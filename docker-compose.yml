@@ -1,247 +1,106 @@
 version: '3.8'
 
 services:
-  # =====================
-  # PostgreSQL Database
-  # =====================
-  db:
-    image: postgres:15-alpine
-    container_name: voicesync_db
-    environment:
-      POSTGRES_USER: voicesync_user
-      POSTGRES_PASSWORD: secure_password_change_me
-      POSTGRES_DB: voicesync_db
-      PGDATA: /var/lib/postgresql/data/pgdata
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-      - ./backend/db/init.sql:/docker-entrypoint-initdb.d/init.sql
-    ports:
-      - "5432:5432"
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U voicesync_user -d voicesync_db"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-    networks:
-      - voicesync_network
-
-  # =====================
-  # Redis Cache
-  # =====================
-  redis:
-    image: redis:7-alpine
-    container_name: voicesync_redis
-    command: redis-server --appendonly yes --requirepass redis_password_change_me
-    volumes:
-      - redis_data:/data
-    ports:
-      - "6379:6379"
-    healthcheck:
-      test: ["CMD", "redis-cli", "--raw", "incr", "ping"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-    networks:
-      - voicesync_network
-
-  # =====================
-  # Python FastAPI Backend
-  # =====================
-  backend:
+  web:
     build:
-      context: ./backend
+      context: .
       dockerfile: Dockerfile
-    container_name: voicesync_backend
-    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
-    environment:
-      - DATABASE_URL=postgresql://voicesync_user:secure_password_change_me@db:5432/voicesync_db
-      - REDIS_URL=redis://:redis_password_change_me@redis:6379/0
-      - ENVIRONMENT=development
-      - DEBUG=true
-      - LOG_LEVEL=INFO
-    volumes:
-      - ./backend:/app
-      - /app/__pycache__
     ports:
       - "8000:8000"
+    environment:
+      - DATABASE_URL=postgresql://voicesync:voicesync@postgres:5432/voicesync
+      - REDIS_URL=redis://redis:6379/0
+      - CELERY_BROKER_URL=redis://redis:6379/1
+      - CELERY_RESULT_BACKEND=redis://redis:6379/2
     depends_on:
-      db:
+      postgres:
         condition: service_healthy
       redis:
         condition: service_healthy
+    volumes:
+      - ./:/app
+      - uploads:/app/uploads
+      - temp:/app/temp
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+    networks:
+      - voicesync-network
+
+  postgres:
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_USER: voicesync
+      POSTGRES_PASSWORD: voicesync
+      POSTGRES_DB: voicesync
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      test: ["CMD-SHELL", "pg_isready -U voicesync"]
       interval: 10s
       timeout: 5s
       retries: 5
     networks:
-      - voicesync_network
+      - voicesync-network
 
-  # =====================
-  # React/Next.js Frontend
-  # =====================
-  frontend:
-    build:
-      context: ./frontend
-      dockerfile: Dockerfile
-      target: development
-    container_name: voicesync_frontend
-    command: npm run dev
-    environment:
-      - REACT_APP_API_URL=http://localhost:8000/api/v1
-      - REACT_APP_WS_URL=ws://localhost:8000/ws
-      - NODE_ENV=development
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
     volumes:
-      - ./frontend:/app
-      - /app/node_modules
-      - /app/.next
-    ports:
-      - "3000:3000"
-    depends_on:
-      - backend
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
     networks:
-      - voicesync_network
+      - voicesync-network
 
-  # =====================
-  # Transcription Service
-  # =====================
-  transcription:
+  celery:
     build:
-      context: ./services/transcription
+      context: .
       dockerfile: Dockerfile
-    container_name: voicesync_transcription
+    command: celery -A app.tasks worker -l info
     environment:
-      - REDIS_URL=redis://:redis_password_change_me@redis:6379/0
-      - OPENAI_API_KEY=${OPENAI_API_KEY}
-      - PORT=8001
-    ports:
-      - "8001:8001"
+      - DATABASE_URL=postgresql://voicesync:voicesync@postgres:5432/voicesync
+      - REDIS_URL=redis://redis:6379/0
+      - CELERY_BROKER_URL=redis://redis:6379/1
+      - CELERY_RESULT_BACKEND=redis://redis:6379/2
     depends_on:
+      - postgres
       - redis
-    networks:
-      - voicesync_network
-
-  # =====================
-  # Translation Service
-  # =====================
-  translation:
-    build:
-      context: ./services/translation
-      dockerfile: Dockerfile
-    container_name: voicesync_translation
-    environment:
-      - REDIS_URL=redis://:redis_password_change_me@redis:6379/0
-      - DEEPL_API_KEY=${DEEPL_API_KEY}
-      - PORT=8002
-    ports:
-      - "8002:8002"
-    depends_on:
-      - redis
-    networks:
-      - voicesync_network
-
-  # =====================
-  # Voice Synthesis Service
-  # =====================
-  voice_synthesis:
-    build:
-      context: ./services/voice_synthesis
-      dockerfile: Dockerfile
-    container_name: voicesync_voice_synthesis
-    environment:
-      - REDIS_URL=redis://:redis_password_change_me@redis:6379/0
-      - ELEVENLABS_API_KEY=${ELEVENLABS_API_KEY}
-      - PORT=8003
-    ports:
-      - "8003:8003"
-    depends_on:
-      - redis
-    networks:
-      - voicesync_network
-
-  # =====================
-  # Celery Worker
-  # =====================
-  celery_worker:
-    build:
-      context: ./backend
-      dockerfile: Dockerfile
-    container_name: voicesync_celery_worker
-    command: celery -A app.celery worker --loglevel=info
-    environment:
-      - DATABASE_URL=postgresql://voicesync_user:secure_password_change_me@db:5432/voicesync_db
-      - REDIS_URL=redis://:redis_password_change_me@redis:6379/0
-      - CELERY_BROKER_URL=redis://:redis_password_change_me@redis:6379/1
-      - CELERY_RESULT_BACKEND=redis://:redis_password_change_me@redis:6379/2
     volumes:
-      - ./backend:/app
-    depends_on:
-      - db
-      - redis
-      - backend
+      - ./:/app
+      - uploads:/app/uploads
+      - temp:/app/temp
     networks:
-      - voicesync_network
+      - voicesync-network
 
-  # =====================
-  # Celery Beat (Scheduler)
-  # =====================
-  celery_beat:
+  celery-beat:
     build:
-      context: ./backend
+      context: .
       dockerfile: Dockerfile
-    container_name: voicesync_celery_beat
-    command: celery -A app.celery beat --loglevel=info
+    command: celery -A app.tasks beat -l info
     environment:
-      - DATABASE_URL=postgresql://voicesync_user:secure_password_change_me@db:5432/voicesync_db
-      - REDIS_URL=redis://:redis_password_change_me@redis:6379/0
-      - CELERY_BROKER_URL=redis://:redis_password_change_me@redis:6379/1
-      - CELERY_RESULT_BACKEND=redis://:redis_password_change_me@redis:6379/2
+      - DATABASE_URL=postgresql://voicesync:voicesync@postgres:5432/voicesync
+      - REDIS_URL=redis://redis:6379/0
+      - CELERY_BROKER_URL=redis://redis:6379/1
+      - CELERY_RESULT_BACKEND=redis://redis:6379/2
+    depends_on:
+      - postgres
+      - redis
     volumes:
-      - ./backend:/app
-    depends_on:
-      - db
-      - redis
-      - backend
+      - ./:/app
     networks:
-      - voicesync_network
-
-  # =====================
-  # pgAdmin (DB Management)
-  # =====================
-  pgadmin:
-    image: dpage/pgadmin4:latest
-    container_name: voicesync_pgadmin
-    environment:
-      PGADMIN_DEFAULT_EMAIL: admin@voicesync-ai.com
-      PGADMIN_DEFAULT_PASSWORD: admin
-    ports:
-      - "5050:80"
-    depends_on:
-      - db
-    networks:
-      - voicesync_network
-
-  # =====================
-  # Redis Commander (Cache Management)
-  # =====================
-  redis_commander:
-    image: rediscommander/redis-commander:latest
-    container_name: voicesync_redis_commander
-    environment:
-      REDIS_HOSTS=default:redis:6379:0:redis_password_change_me
-    ports:
-      - "8081:8081"
-    depends_on:
-      - redis
-    networks:
-      - voicesync_network
+      - voicesync-network
 
 volumes:
   postgres_data:
-    driver: local
   redis_data:
-    driver: local
+  uploads:
+  temp:
 
 networks:
-  voicesync_network:
+  voicesync-network:
     driver: bridge
