@@ -10,6 +10,7 @@ from fastapi.responses import JSONResponse
 from app.config import settings
 from app.routes import auth, dubbing, jobs, voices, health
 from app.utils.logging_config import setup_logging
+from app.utils.database import init_db
 
 # Setup logging
 logger = setup_logging()
@@ -22,9 +23,16 @@ async def lifespan(app: FastAPI):
     logger.info(f"Environment: {settings.ENVIRONMENT}")
     logger.info(f"Debug Mode: {settings.DEBUG}")
     
+    # Initialize database
+    try:
+        init_db()
+        logger.info("✅ Database initialized")
+    except Exception as e:
+        logger.error(f"❌ Database initialization failed: {str(e)}")
+    
     yield
     
-    logger.info("⛔ VoiceSync AI Backend Shutting Down...")
+    logger.info("⏹️  VoiceSync AI Backend Shutting Down...")
 
 
 # Initialize FastAPI app
