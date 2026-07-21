@@ -1,0 +1,174 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+
+jobs:
+  # Backend Tests
+  backend-tests:
+    runs-on: ubuntu-latest
+    
+    services:
+      postgres:
+        image: postgres:15-alpine
+        env:
+          POSTGRES_USER: test_user
+          POSTGRES_PASSWORD: test_password
+          POSTGRES_DB: test_voicesync
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+        cache: 'pip'
+    
+    - name: Install dependencies
+      run: |
+        cd backend
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+    
+    - name: Run linting
+      run: |
+        cd backend
+        black --check app/
+        isort --check-only app/
+        flake8 app/ --count --select=E9,F63,F7,F82 --show-source --statistics
+    
+    - name: Run type checking
+      run: |
+        cd backend
+        mypy app/ --ignore-missing-imports || true
+    
+    - name: Run tests
+      env:
+        DATABASE_URL: postgresql://test_user:test_password@localhost/test_voicesync
+        REDIS_URL: redis://localhost:6379/0
+        ENVIRONMENT: testing
+      run: |
+        cd backend
+        pytest --cov=app --cov-report=xml --cov-report=term
+    
+    - name: Upload coverage
+      uses: codecov/codecov-action@v3
+      with:
+        files: ./backend/coverage.xml
+        flags: backend
+        name: backend-coverage
+
+  # Frontend Tests
+  frontend-tests:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Set up Node.js
+      uses: actions/setup-node@v3
+      with:
+        node-version: '18'
+        cache: 'npm'
+        cache-dependency-path: 'frontend/package-lock.json'
+    
+    - name: Install dependencies
+      run: |
+        cd frontend
+        npm ci
+    
+    - name: Run linting
+      run: |
+        cd frontend
+        npm run lint || true
+    
+    - name: Run type checking
+      run: |
+        cd frontend
+        npm run type-check || true
+    
+    - name: Run tests
+      run: |
+        cd frontend
+        npm test -- --coverage --watchAll=false || true
+    
+    - name: Build
+      run: |
+        cd frontend
+        npm run build
+
+  # Docker Build
+  docker-build:
+    runs-on: ubuntu-latest
+    needs: [backend-tests, frontend-tests]
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v2
+    
+    - name: Build backend image
+      uses: docker/build-push-action@v4
+      with:
+        context: ./backend
+        push: false
+        tags: voicesync-ai/backend:latest
+        cache-from: type=gha
+        cache-to: type=gha,mode=max
+    
+    - name: Build frontend image
+      uses: docker/build-push-action@v4
+      with:
+        context: ./frontend
+        push: false
+        tags: voicesync-ai/frontend:latest
+        cache-from: type=gha
+        cache-to: type=gha,mode=max
+
+  # Security Scanning
+  security-scan:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Run Trivy vulnerability scanner
+      uses: aquasecurity/trivy-action@master
+      with:
+        scan-type: 'fs'
+        scan-ref: '.'
+        format: 'sarif'
+        output: 'trivy-results.sarif'
+    
+    - name: Upload Trivy results
+      uses: github/codeql-action/upload-sarif@v2
+      with:
+        sarif_file: 'trivy-results.sarif'
+
+  # Code Quality
+  code-quality:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+    
+    - name: SonarCloud Scan
+      uses: SonarSource/sonarcloud-github-action@master
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+      continue-on-error: true

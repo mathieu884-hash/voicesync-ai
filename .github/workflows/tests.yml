@@ -1,0 +1,99 @@
+name: Run Tests on Schedule
+
+on:
+  schedule:
+    - cron: '0 2 * * *'  # Daily at 2 AM UTC
+  workflow_dispatch:
+
+jobs:
+  scheduled-tests:
+    runs-on: ubuntu-latest
+    
+    services:
+      postgres:
+        image: postgres:15-alpine
+        env:
+          POSTGRES_USER: test_user
+          POSTGRES_PASSWORD: test_password
+          POSTGRES_DB: test_voicesync
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+      
+      redis:
+        image: redis:7-alpine
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 6379:6379
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+        cache: 'pip'
+    
+    - name: Install dependencies
+      run: |
+        cd backend
+        pip install -r requirements.txt
+    
+    - name: Run full test suite
+      env:
+        DATABASE_URL: postgresql://test_user:test_password@localhost/test_voicesync
+        REDIS_URL: redis://localhost:6379/0
+        ENVIRONMENT: testing
+      run: |
+        cd backend
+        pytest --cov=app --cov-report=html --cov-report=term
+    
+    - name: Upload coverage report
+      uses: actions/upload-artifact@v3
+      with:
+        name: coverage-report
+        path: backend/htmlcov/
+    
+    - name: Comment PR with coverage
+      if: github.event_name == 'pull_request'
+      uses: py-cov-action/python-coverage-comment-action@v3
+      with:
+        GITHUB_TOKEN: ${{ github.token }}
+
+  dependency-check:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+    
+    - name: Install safety
+      run: pip install safety
+    
+    - name: Check for vulnerable dependencies
+      run: |
+        cd backend
+        safety check --json || true
+    
+    - name: Set up Node.js
+      uses: actions/setup-node@v3
+      with:
+        node-version: '18'
+    
+    - name: Check npm vulnerabilities
+      run: |
+        cd frontend
+        npm audit --json || true
