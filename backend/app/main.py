@@ -12,7 +12,6 @@ from app.routes import auth, dubbing, jobs, voices, health
 from app.utils.logging_config import setup_logging
 from app.utils.database import init_db
 
-# Setup logging
 logger = setup_logging()
 
 
@@ -23,7 +22,6 @@ async def lifespan(app: FastAPI):
     logger.info(f"Environment: {settings.ENVIRONMENT}")
     logger.info(f"Debug Mode: {settings.DEBUG}")
     
-    # Initialize database
     try:
         init_db()
         logger.info("✅ Database initialized")
@@ -35,7 +33,6 @@ async def lifespan(app: FastAPI):
     logger.info("⏹️  VoiceSync AI Backend Shutting Down...")
 
 
-# Initialize FastAPI app
 app = FastAPI(
     title="VoiceSync AI API",
     description="AI-powered video dubbing and lip-sync platform",
@@ -46,7 +43,6 @@ app = FastAPI(
     lifespan=lifespan
 )
 
-# Add middleware
 app.add_middleware(GZIPMiddleware, minimum_size=1000)
 app.add_middleware(
     CORSMiddleware,
@@ -57,7 +53,6 @@ app.add_middleware(
 )
 
 
-# Exception handlers
 @app.exception_handler(HTTPException)
 async def http_exception_handler(request, exc):
     """Custom HTTP exception handler"""
@@ -77,10 +72,7 @@ async def general_exception_handler(request, exc):
     )
 
 
-# Health check endpoint
 app.include_router(health.router, prefix="", tags=["Health"])
-
-# API Routes
 app.include_router(auth.router, prefix="/api/v1/auth", tags=["Authentication"])
 app.include_router(dubbing.router, prefix="/api/v1/dubbing", tags=["Dubbing"])
 app.include_router(jobs.router, prefix="/api/v1/jobs", tags=["Jobs"])
@@ -94,7 +86,15 @@ async def root():
         "message": "Welcome to VoiceSync AI API",
         "version": "1.0.0",
         "docs": "/docs",
-        "status": "operational"
+        "status": "operational",
+        "services": {
+            "authentication": "✅ Active",
+            "dubbing": "✅ Active",
+            "transcription": "🔄 Ready",
+            "translation": "🔄 Ready",
+            "voice_synthesis": "🔄 Ready",
+            "lip_sync": "🔄 Ready"
+        }
     }
 
 
