@@ -1,5 +1,5 @@
 # Multi-stage build
-FROM python:3.11-slim as base
+FROM python:3.11-slim AS base
 
 # Set environment variables
 ENV PYTHONUNBUFFERED=1 \
@@ -8,26 +8,31 @@ ENV PYTHONUNBUFFERED=1 \
     PIP_DISABLE_PIP_VERSION_CHECK=1
 
 # Install system dependencies
-RUN apt-get update && apt-get install -y \
+RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
     libpq-dev \
     ffmpeg \
+    libsndfile1 \
+    libgl1 \
+    libglib2.0-0 \
+    libgomp1 \
     libsm6 \
     libxext6 \
     libxrender-dev \
     git \
     curl \
+    && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 
 # Development stage
-FROM base as development
+FROM base AS development
 
 COPY requirements.txt .
 RUN pip install --upgrade pip setuptools wheel && \
-    pip install requests && \
-    pip install -r requirements.txt
+    pip install --no-cache-dir requests && \
+    pip install --no-cache-dir --no-build-isolation -r requirements.txt
 
 COPY . .
 
@@ -36,13 +41,13 @@ EXPOSE 8000
 CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
 
 # Production stage
-FROM base as production
+FROM base AS production
 
-COPY requirements.txt .
+COPY requirements-prod.txt .
 RUN pip install --upgrade pip setuptools wheel && \
-    pip install requests && \
-    pip install -r requirements.txt && \
-    pip install gunicorn==21.2.0
+    pip install --no-cache-dir requests && \
+    pip install --no-cache-dir --no-build-isolation -r requirements-prod.txt && \
+    pip check
 
 COPY . .
 
