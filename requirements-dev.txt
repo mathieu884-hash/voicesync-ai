@@ -1,0 +1,21 @@
+-r requirements.txt
+
+# Testing
+pytest==7.4.3
+pytest-cov==4.1.0
+pytest-asyncio==0.21.1
+
+# Linting
+flake8==6.1.0
+flake8-docstrings==1.7.0
+
+# Code formatting
+black==23.12.0
+
+# Type checking
+mypy==1.7.1
+types-redis==4.6.0.11
+types-PyYAML==6.0.12.12
+
+# Code coverage
+coverage==7.3.2
