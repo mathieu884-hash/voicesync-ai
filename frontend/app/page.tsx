@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { motion } from 'framer-motion';
-import { Play, Zap, Globe, Shield } from 'react-icons/fa';
+import { FaBolt, FaGlobe, FaPlay, FaShieldAlt } from 'react-icons/fa';
 
 export default function Home() {
   return (
@@ -65,10 +65,10 @@ export default function Home() {
         <h2 className="text-3xl font-bold text-center mb-16">Powerful Features</h2>
         <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-8">
           {[
-            { icon: Play, title: 'Auto Dubbing', desc: 'AI-powered voice generation' },
-            { icon: Zap, title: 'Lip Sync', desc: 'Perfect mouth movements' },
-            { icon: Globe, title: '50+ Languages', desc: 'Global reach' },
-            { icon: Shield, title: 'High Quality', desc: 'Professional results' },
+            { icon: FaPlay, title: 'Auto Dubbing', desc: 'AI-powered voice generation' },
+            { icon: FaBolt, title: 'Lip Sync', desc: 'Perfect mouth movements' },
+            { icon: FaGlobe, title: '50+ Languages', desc: 'Global reach' },
+            { icon: FaShieldAlt, title: 'High Quality', desc: 'Professional results' },
           ].map((feature, i) => (
             <motion.div
               key={i}

@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { motion } from 'framer-motion';
-import { Cloud, Loader } from 'react-icons/fa';
+import { FaCloudUploadAlt, FaSpinner } from 'react-icons/fa';
 
 export default function DubbingDashboard() {
   const [file, setFile] = useState<File | null>(null);
@@ -44,7 +44,7 @@ export default function DubbingDashboard() {
             className="card border-2 border-dashed border-slate-600 cursor-pointer hover:border-primary transition"
           >
             <label className="flex flex-col items-center justify-center p-12 cursor-pointer">
-              <Cloud className="text-4xl text-primary mb-4" />
+              <FaCloudUploadAlt className="text-4xl text-primary mb-4" />
               <p className="text-lg font-medium mb-1">
                 {file ? file.name : 'Drop your video here'}
               </p>
@@ -99,7 +99,7 @@ export default function DubbingDashboard() {
               className="card"
             >
               <div className="flex items-center gap-4 mb-4">
-                <Loader className="animate-spin text-primary" />
+                <FaSpinner className="animate-spin text-primary" />
                 <span className="font-medium">Processing...</span>
               </div>
               <div className="w-full bg-slate-700 rounded-full h-2">

@@ -2,7 +2,7 @@
 
 import { PRICING_PLANS } from '@/lib/constants';
 import { motion } from 'framer-motion';
-import { Check } from 'react-icons/fa';
+import { FaCheck } from 'react-icons/fa';
 
 export default function Pricing() {
   return (
@@ -27,20 +27,20 @@ export default function Pricing() {
 
             <ul className="space-y-3 mb-6 flex-1">
               <li className="flex items-center gap-2">
-                <Check className="text-primary" />
+                <FaCheck className="text-primary" />
                 <span>{plan.minutes} minutes/month</span>
               </li>
               <li className="flex items-center gap-2">
-                <Check className="text-primary" />
+                <FaCheck className="text-primary" />
                 <span>{plan.languages} languages</span>
               </li>
               <li className="flex items-center gap-2">
-                <Check className="text-primary" />
+                <FaCheck className="text-primary" />
                 <span>Up to {plan.quality}</span>
               </li>
               {plan.features.map((feature, j) => (
                 <li key={j} className="flex items-center gap-2">
-                  <Check className="text-primary" />
+                  <FaCheck className="text-primary" />
                   <span>{feature}</span>
                 </li>
               ))}

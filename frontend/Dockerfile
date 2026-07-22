@@ -7,9 +7,7 @@ COPY package.json package-lock.json ./
 RUN npm ci
 
 FROM base AS build
-COPY package.json package-lock.json ./
-RUN npm ci --only=production
-
+COPY --from=dependencies /app/node_modules ./node_modules
 COPY . .
 RUN npm run build
 
@@ -18,8 +16,8 @@ ENV NODE_ENV=production
 
 COPY --from=dependencies /app/node_modules ./node_modules
 COPY --from=build /app/.next ./.next
-COPY --from=build /app/public ./public
 COPY package.json ./
+COPY next.config.js ./
 
 EXPOSE 3000
 
