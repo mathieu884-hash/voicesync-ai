@@ -1,0 +1,101 @@
+version: '3.8'
+
+services:
+  nginx:
+    image: nginx:alpine
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+      - nginx_cache:/var/cache/nginx
+    depends_on:
+      - api1
+      - api2
+      - api3
+    networks:
+      - voicesync
+
+  api1:
+    image: voicesync/api:latest
+    environment:
+      - DATABASE_URL=postgresql://voicesync:voicesync@postgres:5432/voicesync_db
+      - REDIS_URL=redis://redis:6379
+    depends_on:
+      - postgres
+      - redis
+    networks:
+      - voicesync
+
+  api2:
+    image: voicesync/api:latest
+    environment:
+      - DATABASE_URL=postgresql://voicesync:voicesync@postgres:5432/voicesync_db
+      - REDIS_URL=redis://redis:6379
+    depends_on:
+      - postgres
+      - redis
+    networks:
+      - voicesync
+
+  api3:
+    image: voicesync/api:latest
+    environment:
+      - DATABASE_URL=postgresql://voicesync:voicesync@postgres:5432/voicesync_db
+      - REDIS_URL=redis://redis:6379
+    depends_on:
+      - postgres
+      - redis
+    networks:
+      - voicesync
+
+  postgres:
+    image: postgres:15-alpine
+    environment:
+      - POSTGRES_USER=voicesync
+      - POSTGRES_PASSWORD=voicesync
+      - POSTGRES_DB=voicesync_db
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - voicesync
+
+  redis:
+    image: redis:7-alpine
+    volumes:
+      - redis_data:/data
+    networks:
+      - voicesync
+
+  prometheus:
+    image: prom/prometheus:latest
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus_data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+    ports:
+      - "9091:9090"
+    networks:
+      - voicesync
+
+  grafana:
+    image: grafana/grafana:latest
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+    ports:
+      - "3001:3000"
+    depends_on:
+      - prometheus
+    networks:
+      - voicesync
+
+volumes:
+  postgres_data:
+  redis_data:
+  prometheus_data:
+  nginx_cache:
+
+networks:
+  voicesync:
