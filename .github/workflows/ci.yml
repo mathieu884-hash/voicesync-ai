@@ -76,18 +76,58 @@ jobs:
     
     steps:
     - uses: actions/checkout@v4
+
+    - name: Detect frontend package manager
+      id: frontend-deps
+      run: |
+        if [ -f frontend/pnpm-lock.yaml ]; then
+          echo "manager=pnpm" >> "$GITHUB_OUTPUT"
+          echo "cache=pnpm" >> "$GITHUB_OUTPUT"
+          echo "cache_path=frontend/pnpm-lock.yaml" >> "$GITHUB_OUTPUT"
+        elif [ -f frontend/yarn.lock ]; then
+          echo "manager=yarn" >> "$GITHUB_OUTPUT"
+          echo "cache=yarn" >> "$GITHUB_OUTPUT"
+          echo "cache_path=frontend/yarn.lock" >> "$GITHUB_OUTPUT"
+        elif [ -f frontend/package-lock.json ]; then
+          echo "manager=npm" >> "$GITHUB_OUTPUT"
+          echo "cache=npm" >> "$GITHUB_OUTPUT"
+          echo "cache_path=frontend/package-lock.json" >> "$GITHUB_OUTPUT"
+        else
+          echo "manager=npm" >> "$GITHUB_OUTPUT"
+          echo "cache=npm" >> "$GITHUB_OUTPUT"
+          echo "cache_path=frontend/package.json" >> "$GITHUB_OUTPUT"
+          echo "No lockfile found in frontend/. Falling back to npm install and package.json-based cache key."
+        fi
+
+    - name: Debug frontend dependency files
+      run: |
+        ls -la frontend
+        echo "Detected package manager: ${{ steps.frontend-deps.outputs.manager }}"
+        echo "Cache dependency path: ${{ steps.frontend-deps.outputs.cache_path }}"
     
     - name: Set up Node.js
       uses: actions/setup-node@v4
       with:
-        node-version: '20'
-        cache: 'npm'
-        cache-dependency-path: './frontend/package-lock.json'
+        node-version: '22'
+        cache: ${{ steps.frontend-deps.outputs.cache }}
+        cache-dependency-path: ${{ steps.frontend-deps.outputs.cache_path }}
     
     - name: Install dependencies
       run: |
-        cd frontend
-        npm ci
+        corepack enable
+        if [ "${{ steps.frontend-deps.outputs.manager }}" = "pnpm" ]; then
+          cd frontend
+          pnpm install --frozen-lockfile
+        elif [ "${{ steps.frontend-deps.outputs.manager }}" = "yarn" ]; then
+          cd frontend
+          yarn install --frozen-lockfile
+        elif [ -f frontend/package-lock.json ]; then
+          cd frontend
+          npm ci
+        else
+          cd frontend
+          npm install
+        fi
     
     - name: Run linting
       run: |
