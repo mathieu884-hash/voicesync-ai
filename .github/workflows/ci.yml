@@ -96,7 +96,7 @@ jobs:
           echo "manager=npm" >> "$GITHUB_OUTPUT"
           echo "cache=npm" >> "$GITHUB_OUTPUT"
           echo "cache_path=frontend/package.json" >> "$GITHUB_OUTPUT"
-          echo "No lockfile found in frontend/. Falling back to npm install and package.json-based cache key."
+          echo "Warning: No lockfile found in frontend/. Falling back to npm install and package.json-based cache key; builds may be non-deterministic." >&2
         fi
 
     - name: Debug frontend dependency files
@@ -114,18 +114,16 @@ jobs:
     
     - name: Install dependencies
       run: |
+        # Enable Corepack to provide yarn/pnpm package managers not preinstalled on GitHub runners.
         corepack enable
+        cd frontend
         if [ "${{ steps.frontend-deps.outputs.manager }}" = "pnpm" ]; then
-          cd frontend
           pnpm install --frozen-lockfile
         elif [ "${{ steps.frontend-deps.outputs.manager }}" = "yarn" ]; then
-          cd frontend
           yarn install --frozen-lockfile
-        elif [ -f frontend/package-lock.json ]; then
-          cd frontend
+        elif [ "${{ steps.frontend-deps.outputs.manager }}" = "npm" ] && [ -f package-lock.json ]; then
           npm ci
         else
-          cd frontend
           npm install
         fi
     
