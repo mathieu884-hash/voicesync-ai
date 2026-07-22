@@ -5,6 +5,11 @@ python-multipart==0.0.6
 pydantic==2.5.0
 pydantic-settings==2.1.0
 
+# API & HTTP (install early for build dependencies)
+requests==2.31.0
+httpx==0.25.2
+aiohttp==3.9.1
+
 # Database
 sqlalchemy==2.0.23
 alembic==1.13.0
@@ -40,11 +45,6 @@ python-dotenv==1.0.0
 cryptography==41.0.7
 PyJWT==2.8.1
 
-# API & HTTP
-requests==2.31.0
-httpx==0.25.2
-aiohttp==3.9.1
-
 # Data Validation
 marshmallow==3.20.1
 python-dateutil==2.8.2
@@ -57,7 +57,6 @@ sentry-sdk==1.39.1
 pytest==7.4.3
 pytest-asyncio==0.21.1
 pytest-cov==4.1.0
-httpx==0.25.2
 faker==21.0.0
 
 # Code Quality
