@@ -22,18 +22,19 @@ jobs:
     - name: Set up Docker Buildx
       uses: docker/setup-buildx-action@v2
     
-    - name: Log in to Docker Hub
+    - name: Log in to GitHub Container Registry
       uses: docker/login-action@v2
       with:
-        username: ${{ secrets.DOCKER_USERNAME }}
-        password: ${{ secrets.DOCKER_PASSWORD }}
+        registry: ghcr.io
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
     
     - name: Extract metadata
       id: meta
       uses: docker/metadata-action@v4
       with:
         images: |
-          voicesync-ai
+          ghcr.io/${{ github.repository }}
         tags: |
           type=ref,event=branch
           type=semver,pattern={{version}}
@@ -45,7 +46,7 @@ jobs:
       with:
         context: ./backend
         push: true
-        tags: ${{ secrets.DOCKER_USERNAME }}/voicesync-ai-backend:latest
+        tags: ghcr.io/${{ github.repository }}/voicesync-ai-backend:latest
         cache-from: type=gha
         cache-to: type=gha,mode=max
     
@@ -54,7 +55,7 @@ jobs:
       with:
         context: ./frontend
         push: true
-        tags: ${{ secrets.DOCKER_USERNAME }}/voicesync-ai-frontend:latest
+        tags: ghcr.io/${{ github.repository }}/voicesync-ai-frontend:latest
         cache-from: type=gha
         cache-to: type=gha,mode=max
 
@@ -81,8 +82,8 @@ jobs:
     
     - name: Deploy to cluster
       run: |
-        kubectl set image deployment/voicesync-backend backend=${{ secrets.DOCKER_USERNAME }}/voicesync-ai-backend:latest -n production || true
-        kubectl set image deployment/voicesync-frontend frontend=${{ secrets.DOCKER_USERNAME }}/voicesync-ai-frontend:latest -n production || true
+        kubectl set image deployment/voicesync-backend backend=ghcr.io/${{ github.repository }}/voicesync-ai-backend:latest -n production || true
+        kubectl set image deployment/voicesync-frontend frontend=ghcr.io/${{ github.repository }}/voicesync-ai-frontend:latest -n production || true
         kubectl rollout status deployment/voicesync-backend -n production || true
       continue-on-error: true
 
