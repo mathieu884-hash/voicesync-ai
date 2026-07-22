@@ -25,9 +25,8 @@ WORKDIR /app
 FROM base as development
 
 COPY requirements.txt .
-RUN pip install --upgrade pip setuptools wheel && \
-    pip install requests && \
-    pip install -r requirements.txt
+RUN pip install --upgrade pip setuptools wheel requests==2.31.0 && \
+    pip install --no-build-isolation -r requirements.txt
 
 COPY . .
 
@@ -38,10 +37,9 @@ CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload
 # Production stage
 FROM base as production
 
-COPY requirements.txt .
-RUN pip install --upgrade pip setuptools wheel && \
-    pip install requests && \
-    pip install -r requirements.txt && \
+COPY requirements-prod.txt .
+RUN pip install --upgrade pip setuptools wheel requests==2.31.0 && \
+    pip install --no-build-isolation -r requirements-prod.txt && \
     pip install gunicorn==21.2.0
 
 COPY . .
